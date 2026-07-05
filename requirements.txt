@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+streamlit
+requests
+pandas
+redis
+confluent-kafka
+gtfs-realtime-bindings
+protobuf
+pytz
+geopy
+streamlit-geolocation
