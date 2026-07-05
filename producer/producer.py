@@ -1,17 +1,66 @@
+# import time
+# import json
+# from confluent_kafka import Producer
+
+# from app.mta_client import get_feed, FEEDS
+# from app.parser import extract_arrivals
+# from datetime import datetime
+# import os
+
+# producer = Producer({
+#     'bootstrap.servers': os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+# })
+
+# TOPIC = 'train-updates'
+
+# def send_arrivals():
+#     for feed_name, url in FEEDS.items():
+#         feed = get_feed(url=url)
+#         arrivals = extract_arrivals(feed)
+
+#         for arrival in arrivals:
+#             producer.produce(
+#                 topic=TOPIC,
+#                 key=arrival['stop_id'],
+#                 value=json.dumps(arrival)
+#             )
+
+#         producer.flush()
+#         print(feed_name, 'feed sent at', datetime.now().isoformat())
+
+# if __name__ == '__main__':
+#     while True:
+#         send_arrivals()
+#         time.sleep(30)
+
+import os
 import time
 import json
+from datetime import datetime
 from confluent_kafka import Producer
 
 from app.mta_client import get_feed, FEEDS
 from app.parser import extract_arrivals
-from datetime import datetime
-import os
 
-producer = Producer({
-    'bootstrap.servers': os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-})
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+TOPIC = "train-updates"
 
-TOPIC = 'train-updates'
+
+def create_producer():
+    while True:
+        try:
+            producer = Producer({
+                "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS
+            })
+            print("Kafka producer created")
+            return producer
+        except Exception as e:
+            print("Kafka not ready:", e)
+            time.sleep(5)
+
+
+producer = create_producer()
+
 
 def send_arrivals():
     for feed_name, url in FEEDS.items():
@@ -21,14 +70,15 @@ def send_arrivals():
         for arrival in arrivals:
             producer.produce(
                 topic=TOPIC,
-                key=arrival['stop_id'],
-                value=json.dumps(arrival)
+                key=arrival["stop_id"],
+                value=json.dumps(arrival),
             )
 
         producer.flush()
-        print(feed_name, 'feed sent at', datetime.now().isoformat())
+        print(feed_name, "feed sent at", datetime.now().isoformat())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     while True:
         send_arrivals()
         time.sleep(30)

@@ -53,9 +53,13 @@ services:
       REDIS_PORT: 6379
 
   frontend:
-    build: .
-    command: streamlit run frontend/frontend.py --server.address 0.0.0.0 --server.port 8501
-    ports:
-      - "8501:8501"
-    depends_on:
-      - api
+  build: .
+  command: streamlit run frontend/frontend.py --server.address 0.0.0.0 --server.port 8501
+  ports:
+    - "8501:8501"
+  environment:
+    API_URL: http://api:8000
+  volumes:
+    - .:/app
+  depends_on:
+    - api

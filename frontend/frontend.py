@@ -1,57 +1,64 @@
+import os
 import requests
 import streamlit as st
-import sys
-from pathlib import Path
 from streamlit_geolocation import streamlit_geolocation
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.station_lookup import get_stops_for_route, get_all_routes
 
-API_URL = "http://127.0.0.1:8000"
+
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+
+st.set_page_config(page_title="MTA Train Arrivals", layout="centered")
 
 st.title("MTA Train Arrivals")
 
-#route = st.text_input("Route", value=7).strip().upper()
-route = st.selectbox('Route', get_all_routes(), placeholder='Select Route')
-direction = st.selectbox("Direction", ["N", "S"], placeholder='Select Direction')
+
+@st.cache_data
+def cached_routes():
+    return get_all_routes()
+
+
+@st.cache_data
+def cached_stops_for_route(route):
+    return get_stops_for_route(route)
+
 
 location = streamlit_geolocation()
 
-c1, c2 = st.columns([1, 1])
+st.divider()
 
-with c2:
-    nearby_arrivals_clicked = st.button('Get Nearby Arrivals')
+st.subheader("Nearby Arrivals")
 
-with c1:
-    get_arrivals_clicked = st.button('Get Arrivals')
-
-if nearby_arrivals_clicked:
+if st.button("Get Nearby Arrivals"):
     if (
         not location
         or location["latitude"] is None
         or location["longitude"] is None
     ):
-        st.warning("Please click on the location button and allow location access to find nearby trains.")
+        st.warning("Click the location button and allow location access.")
         st.stop()
-
-    lat = location["latitude"]
-    lon = location["longitude"]
 
     response = requests.get(
         f"{API_URL}/nearby_arrivals",
-        params={"lat": lat, "lon": lon}
+        params={
+            "lat": location["latitude"],
+            "lon": location["longitude"],
+        },
     )
 
-    st.write("Status code:", response.status_code)
-    st.code(response.text)
-
     if response.status_code != 200:
+        st.error(f"API error: {response.status_code}")
+        st.code(response.text)
         st.stop()
 
     data = response.json()
+    arrivals = data.get("arrivals", [])
 
-    for arrival in data["arrivals"][:10]:
+    if not arrivals:
+        st.warning("No nearby arrivals found yet.")
+        st.stop()
+
+    for arrival in arrivals[:10]:
         st.write(
             f"{arrival['route_id']} train — "
             f"{arrival['direction']} — "
@@ -60,10 +67,28 @@ if nearby_arrivals_clicked:
             f"{arrival['distance']}m away"
         )
 
-if get_arrivals_clicked:
-    route_stops = get_stops_for_route(route)
 
-    # only keep stops matching direction
+st.divider()
+
+st.subheader("Search by Route")
+
+route = st.selectbox(
+    "Route",
+    cached_routes(),
+    index=None,
+    placeholder="Select route",
+)
+
+direction = st.selectbox(
+    "Direction",
+    ["N", "S"],
+    index=None,
+    placeholder="Select direction",
+)
+
+if route and direction:
+    route_stops = cached_stops_for_route(route)
+
     route_stops = route_stops[
         route_stops["stop_id"].astype(str).str.endswith(direction)
     ]
@@ -74,37 +99,51 @@ if get_arrivals_clicked:
 
     stop_name = st.selectbox(
         "Stop",
-        route_stops["stop_name"].unique()
+        route_stops["stop_name"].unique(),
+        index=None,
+        placeholder="Select stop",
+        key=f"stop_{route}_{direction}",
     )
 
-    matching_stop = route_stops[
-        route_stops["stop_name"] == stop_name
-    ].iloc[0]
+    if stop_name:
+        matching_stop = route_stops[
+            route_stops["stop_name"] == stop_name
+        ].iloc[0]
 
-    required_stop_id = matching_stop["stop_id"]
+        required_stop_id = matching_stop["stop_id"]
 
-    st.write("Using stop_id:", required_stop_id)
-
-    if st.button("Get Arrival"):
-        response = requests.get(
-            f"{API_URL}/arrivals",
-            params={
-                "route": route,
-                "stop_id": required_stop_id
-            }
-        )
-
-        data = response.json()
-
-        if "message" in data:
-            st.warning(data["message"])
-            st.write("Tried key:", f"arrivals:{route}:{required_stop_id}")
-            st.stop()
-
-        st.subheader(f"{data['route_id']} train — {data.get('stop_name', stop_name)}")
-        # print(data['arrivals'])
-        for arrival in data["arrivals"]:
-            st.metric(
-                label=arrival["stop_name"],
-                value=f"{arrival['minutes_away']} min"
+        if st.button("Get Arrivals"):
+            response = requests.get(
+                f"{API_URL}/arrivals",
+                params={
+                    "route": route,
+                    "stop_id": required_stop_id,
+                },
             )
+
+            if response.status_code != 200:
+                st.error(f"API error: {response.status_code}")
+                st.code(response.text)
+                st.stop()
+
+            data = response.json()
+
+            if "message" in data:
+                st.warning(data["message"])
+                st.stop()
+
+            arrivals = data.get("arrivals", [])
+
+            if not arrivals:
+                st.warning("No upcoming arrivals found.")
+                st.stop()
+
+            st.subheader(
+                f"{data['route_id']} train — {data.get('stop_name', stop_name)}"
+            )
+
+            for arrival in arrivals:
+                st.metric(
+                    label=data.get("stop_name", stop_name),
+                    value=f"{arrival['minutes_away']} min",
+                )
