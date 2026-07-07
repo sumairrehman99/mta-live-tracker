@@ -79,7 +79,7 @@ Because Redis stores preprocessed arrivals, API requests complete in millisecond
 Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/mta-live-tracker.git
+git clone https://github.com/sumairrehman99/mta-live-tracker.git
 cd mta-live-tracker
 ```
 
