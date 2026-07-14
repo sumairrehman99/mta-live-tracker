@@ -4,6 +4,7 @@ from app.station_lookup import get_nearby_stops
 from app.redis_client import redis_client
 from datetime import datetime
 import pytz
+import time
 
 app = FastAPI()
 
@@ -28,12 +29,17 @@ def calculate_minutes_away(arrival_time_string):
 
 @app.get("/arrivals")
 def get_arrivals(route: str, stop_id: str):
+    start_time = time.perf_counter()
     key = f"arrivals:{route}:{stop_id}"
 
+    redis_start_time = time.perf_counter()
     data = redis_client.get(key)
+    redis_end_time = (time.perf_counter() - redis_start_time)
+    redis_elapsed_time = redis_end_time - redis_start_time
 
     if data is None:
         return {"message": "No arrivals found"}
+    
 
     data = json.loads(data)
 
@@ -49,6 +55,11 @@ def get_arrivals(route: str, stop_id: str):
         arrivals.append(arrival)
 
     data["arrivals"] = sorted(arrivals, key=lambda x: x["minutes_away"])
+
+    elapsed = (time.perf_counter() - start_time)
+
+    data['latency/ms'] = round(elapsed, 2)
+    data['redis_latency/ms'] = round(redis_elapsed_time, 2)
 
     return data
 

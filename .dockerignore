@@ -1,11 +1,9 @@
 .venv
-venv
 __pycache__
 *.pyc
 .git
-.gitignore
-.env
+logs
+data
+mta_dbt/target
+mta_dbt/dbt_packages
 .DS_Store
-.pytest_cache
-.mypy_cache
-*.log

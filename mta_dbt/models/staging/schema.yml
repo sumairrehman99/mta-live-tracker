@@ -1,0 +1,38 @@
+version: 2
+
+models:
+
+  - name: stg_train_updates
+    columns:
+
+      - name: id
+        tests:
+          - unique
+          - not_null
+
+      - name: route_id
+        tests:
+          - not_null
+
+      - name: trip_id
+        tests:
+          - not_null
+
+
+  - name: stg_pipeline_metrics
+    columns:
+
+      - name: id
+        tests:
+          - unique
+          - not_null
+
+      - name: messages_processed
+        tests:
+          - not_null
+
+      - name: messages_per_second
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"

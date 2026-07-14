@@ -1,0 +1,12 @@
+mta_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      port: 5434
+      user: postgres
+      password: postgres
+      dbname: mta
+      schema: public
+      threads: 4

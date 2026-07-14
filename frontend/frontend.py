@@ -147,3 +147,6 @@ if route and direction:
                     label=data.get("stop_name", stop_name),
                     value=f"{arrival['minutes_away']} min",
                 )
+            
+            
+                    

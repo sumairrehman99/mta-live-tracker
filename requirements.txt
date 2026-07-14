@@ -10,3 +10,7 @@ protobuf
 pytz
 geopy
 streamlit-geolocation
+
+psycopg2-binary
+apache-airflow
+dbt-postgres
