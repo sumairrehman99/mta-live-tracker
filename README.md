@@ -1,147 +1,289 @@
 # MTA Live Tracker
 
-A real-time NYC subway arrival tracker built using GTFS Realtime data. The application continuously ingests live train updates, processes them through a streaming pipeline, caches upcoming arrivals in Redis, and exposes a FastAPI backend consumed by a Streamlit frontend.
+A real-time NYC subway tracking and analytics platform built to process live MTA GTFS-Realtime data. The project ingests train updates through a streaming pipeline, stores and processes the data, and exposes real-time information through an API and dashboard.
 
-The project was built to explore real-time data engineering concepts including event streaming, message queues, caching, containerization, and API development.
+I built this project to explore real-time data engineering concepts including event streaming, data pipelines, analytics engineering, and workflow orchestration.
+
+## Overview
+
+The application collects live subway updates from the MTA GTFS-Realtime feed and processes them through a Kafka-based streaming pipeline.
+
+The system:
+
+- Ingests real-time train data from the MTA GTFS-Realtime API
+- Publishes events through Apache Kafka
+- Processes and stores train updates in PostgreSQL
+- Uses Redis for caching frequently accessed API responses
+- Transforms operational data into analytics models using dbt
+- Runs scheduled data workflows using Apache Airflow
+- Provides a frontend dashboard using Streamlit
+
+The goal was to build an end-to-end pipeline similar to what would be used in a production data platform.
 
 ---
 
-## Features
+# Architecture
 
-- Real-time subway arrival predictions
-- Route and direction selection
-- Stop lookup for each route
-- Upcoming train arrivals in minutes
-- FastAPI REST API
-- Streamlit frontend
-- Redis caching for low-latency responses
-- Kafka-based streaming pipeline
-- Dockerized services
-- CI/CD with GitHub Actions
+```text
+                 MTA GTFS-Realtime Feed
+                          |
+                          v
+                  Kafka Producer
+                          |
+                          v
+                    Apache Kafka
+                          |
+                          v
+                  Kafka Consumer
+                          |
+              +-----------+-----------+
+              |                       |
+              v                       v
+        PostgreSQL              Redis Cache
+              |
+              v
+       dbt Transformations
+              |
+              v
+        Analytics Marts
+              |
+              v
+        Airflow DAG
+              |
+              v
+         dbt Tests
 
----
 
-## Architecture
-
-```
-GTFS Realtime Feed
-        │
-        ▼
-Python Producer
-        │
-        ▼
-Kafka Topic
-        │
-        ▼
-Python Consumer
-        │
-        ▼
-Redis Cache
-        │
-        ▼
 FastAPI
-        │
-        ▼
-Streamlit Frontend
+   |
+   v
+PostgreSQL + Redis
+
+
+Streamlit Dashboard
+   |
+   v
+FastAPI API
 ```
 
 ---
 
-## Tech Stack
+# Data Pipeline
 
-- Python
-- FastAPI
-- Streamlit
-- Apache Kafka
-- Redis
-- Docker & Docker Compose
-- GitHub Actions
-- GTFS Realtime
-- Pandas
+## Data Ingestion
 
----
+The pipeline starts by consuming live subway updates from the MTA GTFS-Realtime feed.
 
-## How It Works
+A Python producer:
 
-1. A producer continuously polls the MTA GTFS Realtime feed.
-2. Live train updates are published to Kafka.
-3. A consumer processes each message and stores upcoming arrivals in Redis.
-4. FastAPI queries Redis to retrieve arrival information.
-5. Streamlit displays arrivals through a simple user interface.
+- Connects to the MTA feed
+- Parses incoming transit updates
+- Publishes train events to Kafka
 
-Because Redis stores preprocessed arrivals, API requests complete in milliseconds without repeatedly parsing the GTFS feed.
+The Kafka consumer:
 
+- Reads events from Kafka topics
+- Processes train updates
+- Writes records into PostgreSQL
+
+This allows the application to handle continuously changing transit data in real time.
 
 ---
 
-## Running Locally
+# Backend API
 
-Clone the repository
+The backend is built using FastAPI.
 
-```bash
-git clone https://github.com/sumairrehman99/mta-live-tracker.git
-cd mta-live-tracker
-```
+The API provides endpoints for retrieving subway arrival information.
 
-Start all services
+Features include:
 
-```bash
-docker compose up --build
-```
+- Querying arrivals by route
+- Looking up nearby stations
+- Returning cached responses through Redis
 
-The application will start:
-
-- Kafka
-- Redis
-- FastAPI
-- Streamlit
-
----
-
-## API
-
-### Get Arrivals
+Example endpoints:
 
 ```
 GET /arrivals
+GET /nearby_arrivals
 ```
 
-Example
+Redis caching was added to reduce repeated database queries and improve response times.
+
+---
+
+# Analytics Engineering
+
+## dbt Models
+
+I used dbt to transform raw operational data into analytics-ready datasets.
+
+The transformation workflow includes:
 
 ```
-/arrivals?route=A&stop_id=A42
+Raw Train Updates
+        |
+        v
+Staging Models
+        |
+        v
+Analytics Marts
 ```
 
-Response
+dbt is responsible for:
 
-```json
-{
-  "route": "A",
-  "stop_name": "42 St-Port Authority Bus Terminal",
-  "arrivals": [
-    {
-      "arrival_time": "2026-07-05T14:23:00-04:00",
-      "minutes_away": 3
-    }
-  ]
-}
+- Cleaning and standardizing raw data
+- Creating analytical models
+- Testing data quality before downstream use
+
+Implemented tests include:
+
+- Unique key validation
+- Required field checks
+- Accepted value validation
+- Pipeline freshness monitoring
+- Custom SQL data quality tests
+
+---
+
+# Airflow Orchestration
+
+Apache Airflow is used to automate the analytics workflow.
+
+The Airflow DAG:
+
+1. Executes dbt transformations
+2. Runs dbt tests
+3. Validates that processed data meets quality expectations
+
+This allows the transformation workflow to run automatically instead of manually executing dbt commands.
+
+---
+
+# Performance Metrics
+
+I added pipeline metrics to measure system performance.
+
+Current measurements:
+
+- Streaming throughput: approximately 25,000–30,000 messages/minute
+- Average API latency: approximately 0.0094 seconds
+
+These metrics help evaluate ingestion performance and API responsiveness.
+
+---
+
+# Technology Stack
+
+## Streaming
+
+- Apache Kafka
+- Python
+
+## Backend
+
+- FastAPI
+- Redis
+
+## Database
+
+- PostgreSQL
+
+## Data Engineering
+
+- dbt
+- Apache Airflow
+- SQL
+
+## Frontend
+
+- Streamlit
+
+## Infrastructure
+
+- Docker
+- Docker Compose
+
+---
+
+# Running the Application
+
+Start all services:
+
+```bash
+docker compose up -d
+```
+
+Services:
+
+Frontend:
+
+```
+http://localhost:8501
+```
+
+API:
+
+```
+http://localhost:8000
+```
+
+Airflow:
+
+```
+http://localhost:8080
 ```
 
 ---
 
-## Future Improvements
+# Data Quality Checks
 
-- Nearby stations using device location
-- Native iOS and Android apps
-- Push notifications for approaching trains
-- Historical on-time performance analytics
-- Service disruption alerts
-- Journey planner
-- Arrival prediction models using historical data
-- Interactive subway map
+dbt tests can be run with:
+
+```bash
+dbt test
+```
+
+Current checks include:
+
+- Ensuring required fields are populated
+- Detecting duplicate records
+- Validating route values
+- Monitoring whether new train data is arriving
+
+Example freshness check:
+
+```sql
+select
+    max(received_at) as latest_update
+from {{ ref('stg_train_updates') }}
+having max(received_at) < now() - interval '30 minutes'
+```
+
+This detects when the ingestion pipeline has stopped receiving new data.
 
 ---
 
-## Motivation
+# Future Improvements
 
-This project was built to gain hands-on experience with real-time data engineering systems. Rather than querying the GTFS feed on every request, the application maintains a continuously updated cache of arrivals, demonstrating an event-driven architecture commonly used in production systems.
+Some improvements I would like to add:
+
+- Deploy the application to the cloud
+- Add monitoring and alerting
+- Add incremental dbt models
+- Build additional transit analytics dashboards
+- Add CI/CD automation
+
+---
+
+# What I Learned
+
+This project helped me gain hands-on experience with:
+
+- Designing streaming data pipelines
+- Working with event-driven architectures
+- Building and testing analytics models
+- Orchestrating workflows with Airflow
+- Managing containerized applications
+- Building systems that process real-time data
