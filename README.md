@@ -84,7 +84,7 @@ The Kafka consumer:
 
 - Reads events from Kafka topics
 - Processes train updates
-- Writes records into PostgreSQL
+- Writes records into PostgreSQL and Redis
 
 This allows the application to handle continuously changing transit data in real time.
 
